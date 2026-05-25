@@ -5,6 +5,8 @@ import { db } from '@/lib/db/client';
 import { athleteEfforts, favorites, segments, users } from '@/lib/db/schema';
 import { FavoritesView, type FavoriteSegment } from './FavoritesView';
 
+export const dynamic = 'force-dynamic';
+
 export default async function FavoritesPage() {
   const session = await getSession();
   const isSignedIn = !!session;

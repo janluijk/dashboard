@@ -5,6 +5,8 @@ import { db } from '@/lib/db/client';
 import { favorites } from '@/lib/db/schema';
 import { ExploreMap } from './ExploreMap';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ExplorePage() {
   const session = await getSession();
   const isSignedIn = !!session;
