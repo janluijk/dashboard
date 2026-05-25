@@ -23,6 +23,7 @@ export async function POST(_req: Request, ctx: Ctx) {
   if (segmentId === null) {
     return NextResponse.json({ error: 'invalid_segment_id' }, { status: 400 });
   }
+  console.log('[favorites] POST', { userId: session.userId, segmentId });
   try {
     const exists = await db
       .select({ id: segments.id })
@@ -54,8 +55,14 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   if (segmentId === null) {
     return NextResponse.json({ error: 'invalid_segment_id' }, { status: 400 });
   }
-  await db
+  const deleted = await db
     .delete(favorites)
-    .where(and(eq(favorites.userId, session.userId), eq(favorites.segmentId, segmentId)));
-  return NextResponse.json({ favorited: false });
+    .where(and(eq(favorites.userId, session.userId), eq(favorites.segmentId, segmentId)))
+    .returning();
+  console.log('[favorites] DELETE', {
+    userId: session.userId,
+    segmentId,
+    deletedCount: deleted.length,
+  });
+  return NextResponse.json({ favorited: false, deletedCount: deleted.length });
 }
