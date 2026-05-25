@@ -7,7 +7,7 @@ import type { ExploreSegment } from '@/app/api/segments/explore/route';
 import { decodePolyline } from '@/lib/strava/polyline';
 import { AppNav } from '@/components/AppNav';
 
-const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
+const STYLE_URL = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 const DEFAULT_CENTER: [number, number] = [4.9041, 52.3676];
 const DEFAULT_ZOOM = 13;
 const MAX_VIEWPORT_KM = 20;
@@ -217,18 +217,18 @@ export function ExploreMap({ initialFavoriteIds }: { initialFavoriteIds: number[
           type="button"
           onClick={() => void discoverHere()}
           disabled={isLoading}
-          className="absolute left-3 top-3 rounded-md bg-[#FC5200] px-3 py-2 text-sm font-semibold text-white shadow disabled:opacity-60"
+          className="absolute left-3 top-3 rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white shadow disabled:opacity-60"
         >
           {isLoading ? 'Discovering…' : 'Discover here'}
         </button>
         {error && (
-          <div className="absolute left-3 top-16 max-w-xs rounded-md border border-red-200 bg-red-50 px-3 py-1 text-xs text-red-700 shadow">
+          <div className="absolute left-3 top-16 max-w-xs rounded-md border border-red-900 bg-red-950/70 px-3 py-1 text-xs text-red-300 shadow backdrop-blur">
             {error}
           </div>
         )}
       </div>
-      <aside className="flex-1 overflow-y-auto border-t border-neutral-200 bg-white md:max-w-sm md:border-l md:border-t-0">
-        <div className="border-b border-neutral-200 px-4 py-3 text-sm font-semibold">
+      <aside className="flex-1 overflow-y-auto border-t border-[var(--card-border)] bg-[var(--card)] md:max-w-sm md:border-l md:border-t-0">
+        <div className="border-b border-[var(--card-border)] px-4 py-3 text-sm font-semibold">
           {segments.length} segment{segments.length === 1 ? '' : 's'} in view
         </div>
         <ul>
@@ -239,7 +239,7 @@ export function ExploreMap({ initialFavoriteIds }: { initialFavoriteIds: number[
                 key={s.id}
                 onMouseEnter={() => setHoverId(s.id)}
                 onMouseLeave={() => setHoverId(null)}
-                className="flex items-center gap-3 border-b border-neutral-100 px-4 py-3 hover:bg-neutral-50"
+                className="flex items-center gap-3 border-b border-[var(--card-border)] px-4 py-3 hover:bg-[var(--card-border)]/60 transition"
               >
                 <button
                   type="button"
@@ -249,14 +249,14 @@ export function ExploreMap({ initialFavoriteIds }: { initialFavoriteIds: number[
                     void toggleFavorite(s.id);
                   }}
                   className={`text-2xl leading-none transition ${
-                    isFavorite ? 'text-[#FC5200]' : 'text-neutral-300 hover:text-neutral-500'
+                    isFavorite ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:text-white'
                   }`}
                 >
                   {isFavorite ? '★' : '☆'}
                 </button>
                 <div className="min-w-0 flex-1 cursor-pointer" onClick={() => focusSegment(s)}>
                   <div className="truncate font-medium">{s.name}</div>
-                  <div className="mt-0.5 text-xs text-neutral-500">
+                  <div className="mt-0.5 text-xs text-[var(--muted)]">
                     {(s.distanceM / 1000).toFixed(2)} km · {s.avgGrade.toFixed(1)}% avg
                   </div>
                 </div>

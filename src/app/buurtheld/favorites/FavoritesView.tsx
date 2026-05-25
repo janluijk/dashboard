@@ -6,7 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { decodePolyline } from '@/lib/strava/polyline';
 import { AppNav } from '@/components/AppNav';
 
-const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
+const STYLE_URL = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 const SEGMENTS_SOURCE_ID = 'fav-segments';
 const SEGMENTS_LAYER_ID = 'fav-segments-line';
 const SEGMENTS_HALO_LAYER_ID = 'fav-segments-halo';
@@ -18,7 +18,7 @@ const PINS_HELD_GLOW_LAYER_ID = 'fav-pins-held-glow';
 const PINS_HELD_LAYER_ID = 'fav-pins-held';
 
 const COLOR_HELD = '#F2C94C';
-const COLOR_CHASE = '#FC5200';
+const COLOR_CHASE = 'var(--accent)';
 const COLOR_NONE = '#9CA3AF';
 
 function segmentState(s: { isYouTheLegend: boolean; leaderCountOverall: number | null }): 'held' | 'chase' | 'none' {
@@ -556,8 +556,8 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
       <div className="relative md:flex-1" style={{ minHeight: '50vh' }}>
         <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       </div>
-      <aside className="flex-1 overflow-y-auto border-t border-neutral-200 bg-white md:max-w-sm md:border-l md:border-t-0">
-        <div className="flex flex-col gap-2 border-b border-neutral-200 px-4 py-3">
+      <aside className="flex-1 overflow-y-auto border-t border-[var(--card-border)] bg-[var(--card)] md:max-w-sm md:border-l md:border-t-0">
+        <div className="flex flex-col gap-2 border-b border-[var(--card-border)] px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm font-semibold">
               {visible.length} favorite{visible.length === 1 ? '' : 's'}
@@ -568,18 +568,18 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
                 onClick={() => void refreshAll()}
                 disabled={refreshingIds.size > 0}
                 title="Refresh 50 oldest"
-                className="rounded-md bg-[#FC5200] px-3 py-1.5 text-xs font-semibold text-white shadow-sm disabled:opacity-60"
+                className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm disabled:opacity-60"
               >
                 {refreshingIds.size > 0 ? `Refreshing ${refreshingIds.size}…` : 'Refresh'}
               </button>
             )}
           </div>
-          <label className="flex items-center gap-2 text-xs text-neutral-500">
+          <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
             Sort by
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-800"
+              className="rounded border border-[var(--card-border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
             >
               <option value="distance_to_claim">Distance to claim</option>
               <option value="attempts_to_claim">Attempts to claim</option>
@@ -588,14 +588,14 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
           </label>
         </div>
         {refreshError && (
-          <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+          <div className="border-b border-red-900 bg-red-950/40 px-4 py-2 text-xs text-red-300">
             {refreshError}
           </div>
         )}
         {visible.length === 0 ? (
-          <div className="p-4 text-sm text-neutral-500">
+          <div className="p-4 text-sm text-[var(--muted)]">
             No favorites yet. Star segments from the{' '}
-            <a className="text-[#FC5200] underline" href="/buurtheld/explore">
+            <a className="text-[var(--accent)] underline" href="/buurtheld/explore">
               Explore
             </a>{' '}
             page.
@@ -618,10 +618,10 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
                 : null;
               const isSelected = s.id === selectedId;
               const baseClass = isYouTheLegend
-                ? 'relative flex items-start gap-3 border-b border-[#FC5200]/40 bg-gradient-to-r from-[#FC5200]/15 via-[#FC5200]/[0.07] to-transparent px-4 py-3 hover:from-[#FC5200]/20'
-                : 'flex items-start gap-3 border-b border-neutral-100 px-4 py-3 hover:bg-neutral-50';
+                ? 'relative flex items-start gap-3 border-b border-[var(--accent)]/40 bg-gradient-to-r from-[var(--accent)]/15 via-[var(--accent)]/[0.07] to-transparent px-4 py-3 hover:from-[var(--accent)]/20'
+                : 'flex items-start gap-3 border-b border-[var(--card-border)] px-4 py-3 hover:bg-[var(--card-border)]/40';
               const rowClass = isSelected
-                ? `${baseClass} ring-2 ring-inset ring-[#FC5200]`
+                ? `${baseClass} ring-2 ring-inset ring-[var(--accent)]`
                 : baseClass;
               return (
                 <li key={s.id} id={`fav-row-${s.id}`} className={rowClass}>
@@ -638,7 +638,7 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
                     type="button"
                     aria-label="Unstar segment"
                     onClick={() => void unstar(s.id)}
-                    className="text-2xl leading-none text-[#FC5200]"
+                    className="text-2xl leading-none text-[var(--accent)]"
                   >
                     ★
                   </button>
@@ -649,41 +649,41 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
                     >
                       {s.name}
                     </div>
-                    <div className="mt-0.5 text-xs text-neutral-500">{formatKm(s.distanceM)}</div>
+                    <div className="mt-0.5 text-xs text-[var(--muted)]">{formatKm(s.distanceM)}</div>
                     {wasRefreshed ? (
                       isYouTheLegend ? (
                         <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                          <div className="text-neutral-500">Your efforts (90d)</div>
+                          <div className="text-[var(--muted)]">Your efforts (90d)</div>
                           <div className="text-right font-medium">{athleteCount}</div>
                         </div>
                       ) : (
                         <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                          <div className="text-neutral-500">Leader (90d)</div>
+                          <div className="text-[var(--muted)]">Leader (90d)</div>
                           <div className="text-right font-medium">
                             {hasLeader ? s.leaderCountOverall : '—'}
                           </div>
-                          <div className="text-neutral-500">You (90d)</div>
+                          <div className="text-[var(--muted)]">You (90d)</div>
                           <div className="text-right font-medium">{athleteCount}</div>
                           {hasLeader ? (
                             <>
-                              <div className="text-neutral-500">Attempts to claim</div>
-                              <div className="text-right font-semibold text-[#FC5200]">
+                              <div className="text-[var(--muted)]">Attempts to claim</div>
+                              <div className="text-right font-semibold text-[var(--accent)]">
                                 {remainingAttempts}
                               </div>
-                              <div className="text-neutral-500">Distance to claim</div>
-                              <div className="text-right font-semibold text-[#FC5200]">
+                              <div className="text-[var(--muted)]">Distance to claim</div>
+                              <div className="text-right font-semibold text-[var(--accent)]">
                                 {formatKm(remainingDistanceM ?? 0)}
                               </div>
                             </>
                           ) : (
-                            <div className="col-span-2 mt-1 text-xs italic text-neutral-400">
+                            <div className="col-span-2 mt-1 text-xs italic text-[var(--muted)]/70">
                               Local Legend not active for this segment.
                             </div>
                           )}
                         </div>
                       )
                     ) : (
-                      <div className="mt-2 text-xs italic text-neutral-400">
+                      <div className="mt-2 text-xs italic text-[var(--muted)]/70">
                         No stats yet — press Refresh.
                       </div>
                     )}
@@ -691,7 +691,7 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
                       type="button"
                       onClick={() => void refreshSegment(s.id)}
                       disabled={isRefreshing}
-                      className="mt-2 rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 disabled:opacity-60"
+                      className="mt-2 rounded border border-[var(--card-border)] px-2 py-1 text-xs hover:bg-[var(--card-border)] disabled:opacity-60"
                     >
                       {isRefreshing ? 'Refreshing…' : 'Refresh'}
                     </button>

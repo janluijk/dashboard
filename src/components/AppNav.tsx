@@ -11,8 +11,8 @@ const LINKS = [
 export function AppNav() {
   const pathname = usePathname();
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-4">
-      <Link href="/buurtheld" className="font-semibold text-[#FC5200]">
+    <header className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--card-border)] bg-[var(--card)] px-4">
+      <Link href="/buurtheld" className="font-semibold text-[var(--accent)]">
         Buurtheld
       </Link>
       <nav className="flex gap-1">
@@ -24,8 +24,8 @@ export function AppNav() {
               href={l.href}
               className={
                 isActive
-                  ? 'rounded-md bg-[#FC5200] px-3 py-1 text-sm font-semibold text-white'
-                  : 'rounded-md px-3 py-1 text-sm font-medium text-neutral-600 hover:bg-neutral-100'
+                  ? 'rounded-md bg-[var(--accent)] px-3 py-1 text-sm font-semibold text-white'
+                  : 'rounded-md px-3 py-1 text-sm font-medium text-[var(--muted)] hover:bg-[var(--card-border)] hover:text-white transition'
               }
             >
               {l.label}
