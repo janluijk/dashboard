@@ -405,6 +405,14 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
     await Promise.all(queue.map((s) => refreshSegment(s.id)));
   }
 
+  const refreshAllRef = useRef(refreshAll);
+  refreshAllRef.current = refreshAll;
+  useEffect(() => {
+    const HOUR_MS = 60 * 60 * 1000;
+    const handle = setInterval(() => void refreshAllRef.current(), HOUR_MS);
+    return () => clearInterval(handle);
+  }, []);
+
   async function refreshSegment(segmentId: number) {
     setRefreshingIds((prev) => new Set(prev).add(segmentId));
     setRefreshError(null);
