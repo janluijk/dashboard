@@ -18,7 +18,7 @@ const PINS_HELD_GLOW_LAYER_ID = 'fav-pins-held-glow';
 const PINS_HELD_LAYER_ID = 'fav-pins-held';
 
 const COLOR_HELD = '#F2C94C';
-const COLOR_CHASE = 'var(--accent)';
+const COLOR_CHASE = '#fc5200';
 const COLOR_NONE = '#9CA3AF';
 
 function segmentState(s: { isYouTheLegend: boolean; leaderCountOverall: number | null }): 'held' | 'chase' | 'none' {
