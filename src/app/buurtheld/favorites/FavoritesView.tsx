@@ -402,9 +402,7 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
       return at ? new Date(at).getTime() : -Infinity;
     }
     const queue = [...visible].sort((a, b) => staleness(a) - staleness(b)).slice(0, REFRESH_BATCH);
-    for (const s of queue) {
-      await refreshSegment(s.id);
-    }
+    await Promise.all(queue.map((s) => refreshSegment(s.id)));
   }
 
   async function refreshSegment(segmentId: number) {
