@@ -100,6 +100,20 @@ function formatKm(meters: number): string {
   return `${(meters / 1000).toFixed(2)} km`;
 }
 
+function formatRefreshedAgo(iso: string | null): string | null {
+  if (!iso) return null;
+  const diffMs = Date.now() - new Date(iso).getTime();
+  if (diffMs < 0) return 'just now';
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const days = Math.floor(hr / 24);
+  return `${days}d ago`;
+}
+
 export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[] }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MlMap | null>(null);
@@ -687,14 +701,24 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
                         No stats yet — press Refresh.
                       </div>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => void refreshSegment(s.id)}
-                      disabled={isRefreshing}
-                      className="mt-2 rounded border border-[var(--card-border)] px-2 py-1 text-xs hover:bg-[var(--card-border)] disabled:opacity-60"
-                    >
-                      {isRefreshing ? 'Refreshing…' : 'Refresh'}
-                    </button>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void refreshSegment(s.id)}
+                        disabled={isRefreshing}
+                        className="rounded border border-[var(--card-border)] px-2 py-1 text-xs hover:bg-[var(--card-border)] disabled:opacity-60"
+                      >
+                        {isRefreshing ? 'Refreshing…' : 'Refresh'}
+                      </button>
+                      {formatRefreshedAgo(s.effortsFetchedAt ?? s.detailsFetchedAt) && (
+                        <span
+                          className="text-xs text-[var(--muted)]"
+                          title={(s.effortsFetchedAt ?? s.detailsFetchedAt) ?? ''}
+                        >
+                          Refreshed {formatRefreshedAgo(s.effortsFetchedAt ?? s.detailsFetchedAt)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </li>
               );
