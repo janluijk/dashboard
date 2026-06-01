@@ -116,6 +116,7 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
   stillFavoriteRef.current = stillFavorite;
   const [refreshingIds, setRefreshingIds] = useState<Set<number>>(() => new Set());
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [lastAutoRefreshAt, setLastAutoRefreshAt] = useState<Date | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'distance_to_claim' | 'attempts_to_claim' | 'segment_distance'>(
     'distance_to_claim'
@@ -411,7 +412,9 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
   refreshAllRef.current = refreshAll;
   useEffect(() => {
     const FIFTEEN_MIN_MS = 15 * 60 * 1000;
-    const handle = setInterval(() => void refreshAllRef.current(), FIFTEEN_MIN_MS);
+    const handle = setInterval(() => {
+      void refreshAllRef.current().then(() => setLastAutoRefreshAt(new Date()));
+    }, FIFTEEN_MIN_MS);
     return () => clearInterval(handle);
   }, []);
 
@@ -581,6 +584,11 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
                 {refreshingIds.size > 0 ? `Refreshing ${refreshingIds.size}…` : 'Refresh'}
               </button>
             )}
+          </div>
+          <div className="text-xs text-[var(--muted)]">
+            {lastAutoRefreshAt
+              ? `Auto-refreshed at ${lastAutoRefreshAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+              : 'Auto-refresh every 15 min'}
           </div>
           <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
             Sort by
