@@ -402,10 +402,16 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
       return at ? new Date(at).getTime() : -Infinity;
     }
     const queue = [...visible].sort((a, b) => staleness(a) - staleness(b)).slice(0, REFRESH_BATCH);
-    for (const s of queue) {
-      await refreshSegment(s.id);
-    }
+    await Promise.all(queue.map((s) => refreshSegment(s.id)));
   }
+
+  const refreshAllRef = useRef(refreshAll);
+  refreshAllRef.current = refreshAll;
+  useEffect(() => {
+    const HOUR_MS = 60 * 60 * 1000;
+    const handle = setInterval(() => void refreshAllRef.current(), HOUR_MS);
+    return () => clearInterval(handle);
+  }, []);
 
   async function refreshSegment(segmentId: number) {
     setRefreshingIds((prev) => new Set(prev).add(segmentId));
