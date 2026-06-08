@@ -95,6 +95,8 @@ export const segments = pgTable('segments', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Rows here are the user's selection of tracked segments. The `favorite` flag
+// marks a subset of that selection (segments whose LL progression you watch closely).
 export const favorites = pgTable(
   'favorites',
   {
@@ -102,6 +104,7 @@ export const favorites = pgTable(
     segmentId: bigint('segment_id', { mode: 'number' })
       .notNull()
       .references(() => segments.id, { onDelete: 'cascade' }),
+    favorite: boolean('favorite').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.segmentId] })],

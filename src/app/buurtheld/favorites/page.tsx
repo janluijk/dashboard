@@ -35,6 +35,7 @@ export default async function FavoritesPage() {
       athleteRecent90d: athleteEfforts.recent90dCount,
       detailsFetchedAt: segments.detailsFetchedAt,
       effortsFetchedAt: athleteEfforts.fetchedAt,
+      favorite: favorites.favorite,
     })
     .from(favorites)
     .innerJoin(segments, eq(favorites.segmentId, segments.id))
@@ -61,6 +62,7 @@ export default async function FavoritesPage() {
       r.localLegendAthleteId === stravaAthleteId,
     detailsFetchedAt: r.detailsFetchedAt ? r.detailsFetchedAt.toISOString() : null,
     effortsFetchedAt: r.effortsFetchedAt ? r.effortsFetchedAt.toISOString() : null,
+    favorite: r.favorite,
   }));
 
   return <FavoritesView items={items} />;

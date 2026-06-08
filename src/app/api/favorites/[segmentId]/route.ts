@@ -45,6 +45,36 @@ export async function POST(_req: Request, ctx: Ctx) {
   }
 }
 
+export async function PATCH(req: Request, ctx: Ctx) {
+  const session = await getSession();
+  const hasSession = !!session;
+  if (!hasSession) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+  const segmentId = await resolveSegmentId(ctx);
+  if (segmentId === null) {
+    return NextResponse.json({ error: 'invalid_segment_id' }, { status: 400 });
+  }
+  const body = (await req.json().catch(() => null)) as { favorite?: unknown } | null;
+  const favorite = body?.favorite;
+  const isValid = typeof favorite === 'boolean';
+  if (!isValid) {
+    return NextResponse.json({ error: 'invalid_favorite' }, { status: 400 });
+  }
+  const updated = await db
+    .update(favorites)
+    .set({ favorite })
+    .where(and(eq(favorites.userId, session.userId), eq(favorites.segmentId, segmentId)))
+    .returning();
+  console.log('[favorites] PATCH', {
+    userId: session.userId,
+    segmentId,
+    favorite,
+    updatedCount: updated.length,
+  });
+  return NextResponse.json({ favorite, updatedCount: updated.length });
+}
+
 export async function DELETE(_req: Request, ctx: Ctx) {
   const session = await getSession();
   const hasSession = !!session;

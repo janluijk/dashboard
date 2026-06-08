@@ -94,6 +94,7 @@ export type FavoriteSegment = {
   isYouTheLegend: boolean;
   detailsFetchedAt: string | null;
   effortsFetchedAt: string | null;
+  favorite: boolean;
 };
 
 function formatKm(meters: number): string {
@@ -131,6 +132,9 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
   const [refreshingIds, setRefreshingIds] = useState<Set<number>>(() => new Set());
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [filter, setFilter] = useState<'all' | 'favorites'>('all');
+  const filterRef = useRef<'all' | 'favorites'>(filter);
+  filterRef.current = filter;
   const [sortBy, setSortBy] = useState<'distance_to_claim' | 'attempts_to_claim' | 'segment_distance'>(
     'distance_to_claim'
   );
@@ -346,7 +350,7 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
     if (!map) return;
     if (!map.getSource(SEGMENTS_SOURCE_ID)) return;
     const visibleIds = items
-      .filter((s) => stillFavorite.has(s.id))
+      .filter((s) => stillFavorite.has(s.id) && (filter === 'all' || s.favorite))
       .map((s) => s.id);
     for (const id of visibleIds) {
       map.setFeatureState(
@@ -365,12 +369,12 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
       row?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, items, stillFavorite]);
+  }, [selectedId, items, stillFavorite, filter]);
 
   useEffect(() => {
     syncHeldLayers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, stillFavorite]);
+  }, [items, stillFavorite, filter]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -378,32 +382,29 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
     const segSource = map.getSource(SEGMENTS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
     const pinSource = map.getSource(PINS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
     if (!segSource || !pinSource) return;
+    const shown = items.filter((s) => stillFavorite.has(s.id) && (filter === 'all' || s.favorite));
     segSource.setData({
       type: 'FeatureCollection',
-      features: items
-        .filter((s) => stillFavorite.has(s.id))
-        .map((s) => ({
-          type: 'Feature',
-          id: s.id,
-          properties: { id: s.id, state: segmentState(s) },
-          geometry: {
-            type: 'LineString',
-            coordinates: decodePolyline(s.polyline).map(([lat, lng]) => [lng, lat]),
-          },
-        })),
+      features: shown.map((s) => ({
+        type: 'Feature',
+        id: s.id,
+        properties: { id: s.id, state: segmentState(s) },
+        geometry: {
+          type: 'LineString',
+          coordinates: decodePolyline(s.polyline).map(([lat, lng]) => [lng, lat]),
+        },
+      })),
     });
     pinSource.setData({
       type: 'FeatureCollection',
-      features: items
-        .filter((s) => stillFavorite.has(s.id))
-        .map((s) => ({
-          type: 'Feature',
-          id: s.id,
-          properties: { id: s.id, state: segmentState(s) },
-          geometry: { type: 'Point', coordinates: [s.startLng, s.startLat] },
-        })),
+      features: shown.map((s) => ({
+        type: 'Feature',
+        id: s.id,
+        properties: { id: s.id, state: segmentState(s) },
+        geometry: { type: 'Point', coordinates: [s.startLng, s.startLat] },
+      })),
     });
-  }, [items, stillFavorite]);
+  }, [items, stillFavorite, filter]);
 
   function focusSegment(s: FavoriteSegment) {
     setSelectedId(s.id);
@@ -460,7 +461,7 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
     });
   }
 
-  async function unstar(segmentId: number) {
+  async function removeFromSelection(segmentId: number) {
     const prev = stillFavorite;
     const next = new Set(prev);
     next.delete(segmentId);
@@ -472,13 +473,34 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
     }
   }
 
+  async function toggleFavorite(segmentId: number) {
+    const target = itemsRef.current.find((i) => i.id === segmentId);
+    if (!target) return;
+    const nextValue = !target.favorite;
+    setItems((prev) => prev.map((i) => (i.id === segmentId ? { ...i, favorite: nextValue } : i)));
+    const res = await fetch(`/api/favorites/${segmentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ favorite: nextValue }),
+    }).catch(() => null);
+    const isOk = !!res && res.ok;
+    if (!isOk) {
+      setItems((prev) => prev.map((i) => (i.id === segmentId ? { ...i, favorite: !nextValue } : i)));
+    }
+  }
+
   function syncHeldLayers() {
     const map = mapRef.current;
     if (!map) return;
     if (!map.getSource(SEGMENTS_SOURCE_ID)) return;
     const target = new Set(
       itemsRef.current
-        .filter((i) => i.isYouTheLegend && stillFavoriteRef.current.has(i.id))
+        .filter(
+          (i) =>
+            i.isYouTheLegend &&
+            stillFavoriteRef.current.has(i.id) &&
+            (filterRef.current === 'all' || i.favorite)
+        )
         .map((i) => i.id)
     );
     for (const id of Array.from(heldLayersRef.current)) {
@@ -554,8 +576,10 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
     return [bucket, value];
   }
 
+  const selectedCount = items.filter((i) => stillFavorite.has(i.id)).length;
+  const favoriteCount = items.filter((i) => stillFavorite.has(i.id) && i.favorite).length;
   const visible = items
-    .filter((i) => stillFavorite.has(i.id))
+    .filter((i) => stillFavorite.has(i.id) && (filter === 'all' || i.favorite))
     .sort((a, b) => {
       const [aBucket, aValue] = sortKey(a);
       const [bBucket, bValue] = sortKey(b);
@@ -574,19 +598,45 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
         <div className="flex flex-col gap-2 border-b border-[var(--card-border)] px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm font-semibold">
-              {visible.length} favorite{visible.length === 1 ? '' : 's'}
+              {filter === 'favorites'
+                ? `${favoriteCount} favorite${favoriteCount === 1 ? '' : 's'}`
+                : `${selectedCount} selected`}
             </div>
             {visible.length > 0 && (
               <button
                 type="button"
                 onClick={() => void refreshAll()}
                 disabled={refreshingIds.size > 0}
-                title="Refresh 50 oldest"
+                title="Refresh 25 oldest"
                 className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm disabled:opacity-60"
               >
                 {refreshingIds.size > 0 ? `Refreshing ${refreshingIds.size}…` : 'Refresh'}
               </button>
             )}
+          </div>
+          <div className="flex items-center gap-1 rounded-md border border-[var(--card-border)] p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setFilter('all')}
+              className={
+                filter === 'all'
+                  ? 'flex-1 rounded bg-[var(--accent)] px-2 py-1 font-semibold text-white'
+                  : 'flex-1 rounded px-2 py-1 text-[var(--muted)] hover:text-white'
+              }
+            >
+              All ({selectedCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter('favorites')}
+              className={
+                filter === 'favorites'
+                  ? 'flex-1 rounded bg-[var(--accent)] px-2 py-1 font-semibold text-white'
+                  : 'flex-1 rounded px-2 py-1 text-[var(--muted)] hover:text-white'
+              }
+            >
+              ★ Favorites ({favoriteCount})
+            </button>
           </div>
           <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
             Sort by
@@ -607,13 +657,19 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
           </div>
         )}
         {visible.length === 0 ? (
-          <div className="p-4 text-sm text-[var(--muted)]">
-            No favorites yet. Star segments from the{' '}
-            <a className="text-[var(--accent)] underline" href="/buurtheld/explore">
-              Explore
-            </a>{' '}
-            page.
-          </div>
+          filter === 'favorites' ? (
+            <div className="p-4 text-sm text-[var(--muted)]">
+              No favorites yet. Tap the ☆ on a selected segment to mark it as a favorite.
+            </div>
+          ) : (
+            <div className="p-4 text-sm text-[var(--muted)]">
+              No segments selected yet. Add segments from the{' '}
+              <a className="text-[var(--accent)] underline" href="/buurtheld/explore">
+                Explore
+              </a>{' '}
+              page.
+            </div>
+          )
         ) : (
           <ul>
             {visible.map((s) => {
@@ -650,11 +706,16 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
                   )}
                   <button
                     type="button"
-                    aria-label="Unstar segment"
-                    onClick={() => void unstar(s.id)}
-                    className="text-2xl leading-none text-[var(--accent)]"
+                    aria-label={s.favorite ? 'Remove from favorites' : 'Mark as favorite'}
+                    title={s.favorite ? 'Favorite' : 'Mark as favorite'}
+                    onClick={() => void toggleFavorite(s.id)}
+                    className={
+                      s.favorite
+                        ? 'text-2xl leading-none text-[var(--accent)]'
+                        : 'text-2xl leading-none text-[var(--muted)] hover:text-[var(--accent)]'
+                    }
                   >
-                    ★
+                    {s.favorite ? '★' : '☆'}
                   </button>
                   <div className="relative min-w-0 flex-1">
                     <div
@@ -718,6 +779,14 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
                           Refreshed {formatRefreshedAgo(s.effortsFetchedAt ?? s.detailsFetchedAt)}
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => void removeFromSelection(s.id)}
+                        title="Remove from selection"
+                        className="ml-auto rounded border border-[var(--card-border)] px-2 py-1 text-xs text-[var(--muted)] hover:border-red-900 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
                     </div>
                   </div>
                 </li>
