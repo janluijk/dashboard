@@ -74,7 +74,7 @@ export const goals = pgTable('goals', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// --- Tables owned by buurtheld; included here so drizzle-kit treats them as known. ---
+// --- Buurtheld feature tables (Strava segment / Local Legend tracking). ---
 
 export const segments = pgTable('segments', {
   id: bigint('id', { mode: 'number' }).primaryKey(),
@@ -143,3 +143,9 @@ export type Todo = typeof todos.$inferSelect;
 export type NewTodo = typeof todos.$inferInsert;
 export type Goal = typeof goals.$inferSelect;
 export type NewGoal = typeof goals.$inferInsert;
+export type Segment = typeof segments.$inferSelect;
+export type NewSegment = typeof segments.$inferInsert;
+export type Favorite = typeof favorites.$inferSelect;
+export type NewFavorite = typeof favorites.$inferInsert;
+export type AthleteEffort = typeof athleteEfforts.$inferSelect;
+export type NewAthleteEffort = typeof athleteEfforts.$inferInsert;

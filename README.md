@@ -24,15 +24,9 @@ Strava activities are synced into Postgres; study sessions come from a built-in 
 4. `npm run db:push` to create tables
 5. `npm run dev`
 
-## Sharing one Strava app with buurtheld
+## Buurtheld (Strava Local Legend tracker)
 
-This project deploys separately from `../buurtheld` but they share **one Strava API app** and **one Postgres database**.
-
-- Strava callback domain must match both deploys' host. Set it to your root domain (e.g. `yourdomain.com`) so both `dashboard.yourdomain.com` and `buurtheld.yourdomain.com` are accepted. Each app keeps its own full `STRAVA_REDIRECT_URI` pointing to its own `/api/auth/callback`.
-- Both projects point at the same `DATABASE_URL`. The dashboard's `schema.ts` knows about buurtheld's tables (segments, favorites, etc.) so `drizzle-kit push` from either side is safe — it only adds the new dashboard tables on first run.
-- Sessions are not shared (each app has its own JWT cookie). After Strava login on either app you're recognized as the same user row because both look up users by `strava_athlete_id`.
-- Set `NEXT_PUBLIC_BUURTHELD_URL` in dashboard env → sidebar link appears.
-- Set `NEXT_PUBLIC_DASHBOARD_URL` in buurtheld env → "← Dashboard" link appears top-left.
+The Buurtheld feature lives in this same app under `/buurtheld/*` (Explore, Favorites) with its API under `/api/segments` and `/api/favorites`. It was previously a separate repo/deploy; it is now consolidated here so there is a single codebase, single deploy, and single `schema.ts` owning all tables. It reuses the same Strava OAuth and `users` table — you sign in once and are recognized by `strava_athlete_id`.
 
 ## Deploy to Vercel
 
