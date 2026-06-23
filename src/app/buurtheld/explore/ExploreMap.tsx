@@ -58,8 +58,29 @@ export function ExploreMap({ initialFavoriteIds }: { initialFavoriteIds: number[
           'line-opacity': 0.85,
         },
       });
-      void refetchFromCache();
+      // No segments are loaded on open — the user discovers them explicitly
+      // via the "Discover here" button.
     });
+
+    // Center on the user's current location, falling back to the default
+    // center if geolocation is denied or unavailable. No segments are fetched.
+    const hasGeolocation =
+      typeof navigator !== 'undefined' && !!navigator.geolocation;
+    if (hasGeolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (!mapRef.current) return;
+          mapRef.current.jumpTo({
+            center: [pos.coords.longitude, pos.coords.latitude],
+            zoom: DEFAULT_ZOOM,
+          });
+        },
+        () => {
+          // Permission denied or unavailable — keep the default center.
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+    }
 
     const resizeObserver = new ResizeObserver(() => {
       map.resize();
@@ -89,26 +110,6 @@ export function ExploreMap({ initialFavoriteIds }: { initialFavoriteIds: number[
     const avgLat = ((b.getNorth() + b.getSouth()) / 2) * (Math.PI / 180);
     const lngKm = (b.getEast() - b.getWest()) * 111 * Math.cos(avgLat);
     return latKm > MAX_VIEWPORT_KM || lngKm > MAX_VIEWPORT_KM;
-  }
-
-  async function refetchFromCache() {
-    const bounds = currentBoundsString();
-    if (!bounds) return;
-    const seq = ++fetchSeqRef.current;
-    setError(null);
-    const res = await fetch(`/api/segments/in-bounds?bounds=${bounds}`, {
-      cache: 'no-store',
-    }).catch(() => null);
-    const isStale = seq !== fetchSeqRef.current;
-    if (isStale) return;
-    const isOk = !!res && res.ok;
-    if (!isOk) {
-      setError('Failed to load cached segments');
-      return;
-    }
-    const data = (await res!.json()) as { segments: ExploreSegment[] };
-    setSegments(data.segments);
-    drawSegments(data.segments);
   }
 
   async function discoverHere() {
