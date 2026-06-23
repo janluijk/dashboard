@@ -60,8 +60,10 @@ export function WeeklyMileageChart({ activities, weeks = 12, weeklyGoalKm }: Pro
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
-  const total = data.reduce((s, d) => s + d.km, 0);
-  const avg = total / data.length;
+  // Average only the completed weeks — the current week is still partway
+  // through, so including it would always pull the figure down.
+  const completed = data.filter((d) => !d.isCurrent);
+  const avg = completed.reduce((s, d) => s + d.km, 0) / (completed.length || 1);
 
   const stepX = data.length > 1 ? innerW / (data.length - 1) : 0;
   const points = data.map((d, i) => {
@@ -100,7 +102,7 @@ export function WeeklyMileageChart({ activities, weeks = 12, weeklyGoalKm }: Pro
       <div className="flex items-baseline justify-between mb-3">
         <p className="text-xs uppercase tracking-wider text-[var(--muted)]">Weekly mileage</p>
         <p className="text-xs text-[var(--muted)]">
-          {weeks}-week avg <span className="text-white font-medium">{avg.toFixed(1)} km</span>
+          {completed.length}-week avg <span className="text-white font-medium">{avg.toFixed(1)} km</span>
         </p>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" role="img">
