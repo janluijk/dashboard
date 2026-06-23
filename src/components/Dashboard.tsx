@@ -1,9 +1,8 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { StatCard } from './StatCard';
+import { WeekProgress, type WeekMetric } from './WeekProgress';
 import { TodoList } from './TodoList';
-import { GoalsPanel } from './GoalsPanel';
 import { Heatmap } from './Heatmap';
 import { WeeklyMileageChart } from './WeeklyMileageChart';
 import { AlbumOfTheDay } from './AlbumOfTheDay';
@@ -122,6 +121,38 @@ export function Dashboard(props: Props) {
   const strengthSeconds = weekStrength.reduce((sum, a) => sum + a.movingTimeS, 0);
   const cyclingSeconds = weekRides.reduce((sum, a) => sum + a.movingTimeS, 0);
 
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const metrics: WeekMetric[] = [
+    {
+      kind: 'weekly_km',
+      label: 'Running',
+      centerValue: weeklyKm.toFixed(1),
+      centerUnit: 'km',
+      current: weeklyKm,
+      unit: 'km',
+      sub: plural(weekRuns.length, 'run'),
+      defaultTarget: 30,
+    },
+    {
+      kind: 'weekly_strength_hours',
+      label: 'Strength',
+      centerValue: formatHM(strengthSeconds),
+      current: strengthSeconds / 3600,
+      unit: 'h',
+      sub: plural(weekStrength.length, 'session'),
+      defaultTarget: 1.5,
+    },
+    {
+      kind: 'weekly_cycling_hours',
+      label: 'Cycling',
+      centerValue: formatHM(cyclingSeconds),
+      current: cyclingSeconds / 3600,
+      unit: 'h',
+      sub: plural(weekRides.length, 'ride'),
+      defaultTarget: 2,
+    },
+  ];
+
   async function sync() {
     setSyncMsg(null);
     startSync(async () => {
@@ -171,48 +202,24 @@ export function Dashboard(props: Props) {
       </header>
       {syncMsg ? <p className="text-xs text-[var(--muted)] mb-4">{syncMsg}</p> : null}
 
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <StatCard
-          label="Weekly mileage"
-          value={weeklyKm.toFixed(1)}
-          unit="km"
-          sub={`${weekRuns.length} run${weekRuns.length === 1 ? '' : 's'}`}
-        />
-        <StatCard
-          label="Strength time"
-          value={formatHM(strengthSeconds)}
-          sub={`${weekStrength.length} session${weekStrength.length === 1 ? '' : 's'}`}
-        />
-        <StatCard
-          label="Cycling time"
-          value={formatHM(cyclingSeconds)}
-          sub={`${weekRides.length} ride${weekRides.length === 1 ? '' : 's'}`}
-        />
-      </section>
+      <WeekProgress goals={goals} metrics={metrics} />
 
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 items-start">
-        <GoalsPanel
-          goals={goals}
-          weeklyKm={weeklyKm}
-          strengthHours={strengthSeconds / 3600}
-          cyclingHours={cyclingSeconds / 3600}
-        />
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mt-6 items-start">
+        <div className="lg:col-span-8 flex flex-col gap-4">
           <WeeklyMileageChart
             activities={activities}
             weeks={12}
             weeklyGoalKm={goals.find((g) => g.kind === 'weekly_km')?.targetValue}
           />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <TodoList initialTodos={todos} />
+            <Heatmap activities={activities} />
+          </div>
         </div>
-      </section>
-
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6 items-start">
-        <TodoList initialTodos={todos} />
-        <div className="flex flex-col gap-4">
-          <Heatmap activities={activities} />
+        <div className="lg:col-span-4">
           <AlbumOfTheDay initialAlbums={albums} />
         </div>
-      </section>
+      </div>
     </main>
   );
 }
