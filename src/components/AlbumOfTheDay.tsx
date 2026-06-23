@@ -121,6 +121,8 @@ export function AlbumOfTheDay({ initialAlbums }: { initialAlbums: Album[] }) {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [overId, setOverId] = useState<number | null>(null);
   const seq = useRef(0);
 
   const queue = useMemo(
@@ -236,14 +238,108 @@ export function AlbumOfTheDay({ initialAlbums }: { initialAlbums: Album[] }) {
     await fetch(`/api/albums/${id}`, { method: 'DELETE' });
   }
 
+  // --- Drag to reorder the queue. The first item is the album of the day, so
+  // dragging a queued album above the current one promotes it to today. ---
+
+  function resetDrag() {
+    setDragId(null);
+    setOverId(null);
+  }
+
+  function onDragStart(e: React.DragEvent, id: number) {
+    setDragId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(id));
+    // Drag the whole card/row as the ghost image, not just the grip handle.
+    const card = (e.currentTarget as HTMLElement).closest('[data-drag-card]');
+    if (card) e.dataTransfer.setDragImage(card as Element, 16, 16);
+  }
+
+  function onDragOver(e: React.DragEvent, id: number) {
+    if (dragId === null) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (id !== overId) setOverId(id);
+  }
+
+  function drop(dropId: number) {
+    if (dragId === null || dragId === dropId) {
+      resetDrag();
+      return;
+    }
+    const ids = queue.map((a) => a.id);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(dropId);
+    if (from === -1 || to === -1) {
+      resetDrag();
+      return;
+    }
+    const next = [...queue];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    const orderedIds = next.map((a) => a.id);
+    // Optimistic: positions become the new indices, which re-sorts the queue.
+    setAlbums((cur) =>
+      cur.map((a) => {
+        const idx = orderedIds.indexOf(a.id);
+        return idx === -1 ? a : { ...a, position: idx };
+      }),
+    );
+    resetDrag();
+    fetch('/api/albums/reorder', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: orderedIds }),
+    });
+  }
+
+  // Shared props that make an element a drop target for the dragged album.
+  function dropTargetProps(id: number) {
+    return {
+      onDragOver: (e: React.DragEvent) => onDragOver(e, id),
+      onDrop: (e: React.DragEvent) => {
+        e.preventDefault();
+        drop(id);
+      },
+      'data-drag-card': true,
+    };
+  }
+
+  // A render helper (not a nested component) so it isn't remounted on every
+  // re-render — remounting mid-drag would cancel the drag.
+  function gripHandle(id: number) {
+    return (
+      <button
+        type="button"
+        aria-label="Drag to reorder"
+        draggable
+        onDragStart={(e) => onDragStart(e, id)}
+        onDragEnd={resetDrag}
+        className="cursor-grab active:cursor-grabbing text-[var(--muted)] hover:text-[var(--foreground)] leading-none select-none touch-none"
+      >
+        ⠿
+      </button>
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5">
       <p className="text-xs uppercase tracking-wider text-[var(--muted)] mb-3">Album of the day</p>
 
       {/* Today */}
       {today ? (
-        <div className="rounded-xl border border-[var(--card-border)] p-4 mb-5">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-2">Today</p>
+        <div
+          {...dropTargetProps(today.id)}
+          className={`rounded-xl border p-4 mb-5 transition-colors ${
+            overId === today.id && dragId !== today.id
+              ? 'border-[var(--accent)] bg-[var(--accent)]/5'
+              : 'border-[var(--card-border)]'
+          } ${dragId === today.id ? 'opacity-50' : ''}`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] uppercase tracking-wider text-[var(--accent)]">Today</p>
+            {gripHandle(today.id)}
+          </div>
           <div className="flex gap-4">
             <Cover album={today} size={72} />
             <div className="min-w-0 flex-1">
@@ -288,7 +384,14 @@ export function AlbumOfTheDay({ initialAlbums }: { initialAlbums: Album[] }) {
       <p className="text-xs uppercase tracking-wider text-[var(--muted)] mb-2">Up next</p>
       <ul className="space-y-1 mb-3">
         {upNext.map((a) => (
-          <li key={a.id} className="flex items-center gap-3 py-1 group">
+          <li
+            key={a.id}
+            {...dropTargetProps(a.id)}
+            className={`flex items-center gap-2 py-1 px-1 -mx-1 rounded-lg group transition-colors ${
+              overId === a.id && dragId !== a.id ? 'bg-[var(--accent)]/10' : ''
+            } ${dragId === a.id ? 'opacity-50' : ''}`}
+          >
+            {gripHandle(a.id)}
             <Cover album={a} size={32} />
             <span className="flex-1 min-w-0 text-sm truncate">
               <span className="font-medium">{a.title}</span>
