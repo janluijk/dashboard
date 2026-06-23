@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { StatCard } from './StatCard';
-import { StudyTimer } from './StudyTimer';
 import { TodoList } from './TodoList';
 import { GoalsPanel } from './GoalsPanel';
 import { Heatmap } from './Heatmap';
@@ -17,14 +16,6 @@ type Activity = {
   distanceM: number;
   movingTimeS: number;
   startDate: string;
-};
-
-type StudySession = {
-  id: number;
-  startedAt: string;
-  endedAt: string;
-  durationS: number;
-  label: string | null;
 };
 
 type Todo = {
@@ -64,13 +55,34 @@ type Props = {
   weekStart: string;
   weekEnd: string;
   activities: Activity[];
-  studySessions: StudySession[];
   todos: Todo[];
   goals: Goal[];
   albums: Album[];
 };
 
 const RUN_TYPES = new Set(['Run', 'TrailRun', 'VirtualRun']);
+// Strength training: Strava reports these under both `type` and `sport_type`.
+const STRENGTH_TYPES = new Set([
+  'WeightTraining',
+  'Workout',
+  'Crossfit',
+  'HighIntensityIntervalTraining',
+]);
+// Anything on a bike. The legacy `type` collapses most of these to "Ride",
+// while `sport_type` keeps the finer-grained variants.
+const RIDE_TYPES = new Set([
+  'Ride',
+  'VirtualRide',
+  'MountainBikeRide',
+  'GravelRide',
+  'EBikeRide',
+  'EMountainBikeRide',
+  'Handcycle',
+]);
+
+function matchesType(a: Activity, set: Set<string>): boolean {
+  return set.has(a.type) || set.has(a.sportType);
+}
 
 function isInWeek(d: string, start: string, end: string): boolean {
   const t = new Date(d).getTime();
@@ -85,26 +97,27 @@ function formatHM(seconds: number): string {
 }
 
 export function Dashboard(props: Props) {
-  const { user, weekStart, weekEnd, activities, studySessions, todos, goals, albums } = props;
+  const { user, weekStart, weekEnd, activities, todos, goals, albums } = props;
   const [syncing, startSync] = useTransition();
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
-  const weekRuns = useMemo(
-    () => activities.filter((a) => RUN_TYPES.has(a.type) && isInWeek(a.startDate, weekStart, weekEnd)),
-    [activities, weekStart, weekEnd],
-  );
-  const weekWorkouts = useMemo(
+  const weekActivities = useMemo(
     () => activities.filter((a) => isInWeek(a.startDate, weekStart, weekEnd)),
     [activities, weekStart, weekEnd],
   );
-  const weekStudy = useMemo(
-    () => studySessions.filter((s) => isInWeek(s.startedAt, weekStart, weekEnd)),
-    [studySessions, weekStart, weekEnd],
+  const weekRuns = useMemo(() => weekActivities.filter((a) => RUN_TYPES.has(a.type)), [weekActivities]);
+  const weekStrength = useMemo(
+    () => weekActivities.filter((a) => matchesType(a, STRENGTH_TYPES)),
+    [weekActivities],
+  );
+  const weekRides = useMemo(
+    () => weekActivities.filter((a) => matchesType(a, RIDE_TYPES)),
+    [weekActivities],
   );
 
   const weeklyKm = weekRuns.reduce((sum, a) => sum + a.distanceM, 0) / 1000;
-  const workoutSeconds = weekWorkouts.reduce((sum, a) => sum + a.movingTimeS, 0);
-  const studySeconds = weekStudy.reduce((sum, s) => sum + s.durationS, 0);
+  const strengthSeconds = weekStrength.reduce((sum, a) => sum + a.movingTimeS, 0);
+  const cyclingSeconds = weekRides.reduce((sum, a) => sum + a.movingTimeS, 0);
 
   async function sync() {
     setSyncMsg(null);
@@ -163,44 +176,39 @@ export function Dashboard(props: Props) {
           sub={`${weekRuns.length} run${weekRuns.length === 1 ? '' : 's'}`}
         />
         <StatCard
-          label="Workout time"
-          value={formatHM(workoutSeconds)}
-          sub={`${weekWorkouts.length} workout${weekWorkouts.length === 1 ? '' : 's'}`}
+          label="Strength time"
+          value={formatHM(strengthSeconds)}
+          sub={`${weekStrength.length} session${weekStrength.length === 1 ? '' : 's'}`}
         />
         <StatCard
-          label="Study time"
-          value={formatHM(studySeconds)}
-          sub={`${weekStudy.length} session${weekStudy.length === 1 ? '' : 's'}`}
+          label="Cycling time"
+          value={formatHM(cyclingSeconds)}
+          sub={`${weekRides.length} ride${weekRides.length === 1 ? '' : 's'}`}
         />
       </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 items-start">
+        <GoalsPanel
+          goals={goals}
+          weeklyKm={weeklyKm}
+          strengthHours={strengthSeconds / 3600}
+          cyclingHours={cyclingSeconds / 3600}
+        />
         <div className="lg:col-span-2">
-          <GoalsPanel
-            goals={goals}
-            weeklyKm={weeklyKm}
-            workoutHours={workoutSeconds / 3600}
-            studyHours={studySeconds / 3600}
+          <WeeklyMileageChart
+            activities={activities}
+            weeks={12}
+            weeklyGoalKm={goals.find((g) => g.kind === 'weekly_km')?.targetValue}
           />
         </div>
-        <StudyTimer />
       </section>
 
-      <section className="mb-6">
-        <WeeklyMileageChart
-          activities={activities}
-          weeks={12}
-          weeklyGoalKm={goals.find((g) => g.kind === 'weekly_km')?.targetValue}
-        />
-      </section>
-
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6 items-start">
         <TodoList initialTodos={todos} />
-        <Heatmap activities={activities} studySessions={studySessions} />
-      </section>
-
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <AlbumOfTheDay initialAlbums={albums} />
+        <div className="flex flex-col gap-4">
+          <Heatmap activities={activities} />
+          <AlbumOfTheDay initialAlbums={albums} />
+        </div>
       </section>
     </main>
   );

@@ -3,19 +3,12 @@
 import { useMemo } from 'react';
 
 type Activity = { startDate: string; movingTimeS: number };
-type StudySession = { startedAt: string; durationS: number };
 
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function Heatmap({
-  activities,
-  studySessions,
-}: {
-  activities: Activity[];
-  studySessions: StudySession[];
-}) {
+export function Heatmap({ activities }: { activities: Activity[] }) {
   const { weeks, max } = useMemo(() => {
     const days = 12 * 7;
     const today = new Date();
@@ -29,10 +22,6 @@ export function Heatmap({
     for (const a of activities) {
       const k = ymd(new Date(a.startDate));
       totals.set(k, (totals.get(k) ?? 0) + a.movingTimeS);
-    }
-    for (const s of studySessions) {
-      const k = ymd(new Date(s.startedAt));
-      totals.set(k, (totals.get(k) ?? 0) + s.durationS);
     }
 
     let max = 0;
@@ -54,7 +43,7 @@ export function Heatmap({
       weeks.push(cells.slice(i, i + 7));
     }
     return { weeks, max };
-  }, [activities, studySessions]);
+  }, [activities]);
 
   function color(value: number, isFuture: boolean): string {
     if (isFuture) return 'transparent';
@@ -85,7 +74,7 @@ export function Heatmap({
           </div>
         ))}
       </div>
-      <p className="text-xs text-[var(--muted)] mt-3">Workouts + study time combined.</p>
+      <p className="text-xs text-[var(--muted)] mt-3">Total moving time per day.</p>
     </div>
   );
 }

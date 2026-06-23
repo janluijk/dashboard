@@ -7,17 +7,17 @@ type Goal = { id: number; kind: string; targetValue: number; unit: string };
 type Props = {
   goals: Goal[];
   weeklyKm: number;
-  workoutHours: number;
-  studyHours: number;
+  strengthHours: number;
+  cyclingHours: number;
 };
 
 const DEFAULTS: Record<string, { label: string; unit: string; target: number }> = {
   weekly_km: { label: 'Weekly mileage', unit: 'km', target: 30 },
-  weekly_workout_hours: { label: 'Workout time', unit: 'h', target: 5 },
-  weekly_study_hours: { label: 'Study time', unit: 'h', target: 15 },
+  weekly_strength_hours: { label: 'Strength training', unit: 'h', target: 1.5 },
+  weekly_cycling_hours: { label: 'Cycling', unit: 'h', target: 2 },
 };
 
-export function GoalsPanel({ goals, weeklyKm, workoutHours, studyHours }: Props) {
+export function GoalsPanel({ goals, weeklyKm, strengthHours, cyclingHours }: Props) {
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState<Record<string, number>>(() => {
     const out: Record<string, number> = {};
@@ -31,8 +31,8 @@ export function GoalsPanel({ goals, weeklyKm, workoutHours, studyHours }: Props)
 
   const currents: Record<string, number> = {
     weekly_km: weeklyKm,
-    weekly_workout_hours: workoutHours,
-    weekly_study_hours: studyHours,
+    weekly_strength_hours: strengthHours,
+    weekly_cycling_hours: cyclingHours,
   };
 
   async function save() {
