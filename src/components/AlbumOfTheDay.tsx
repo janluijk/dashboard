@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type Album = {
   id: number;
@@ -10,6 +10,18 @@ type Album = {
   listenedOn: string | null;
   rating: number | null;
   note: string | null;
+  imageUrl: string | null;
+  spotifyUrl: string | null;
+  releaseYear: number | null;
+};
+
+type SearchResult = {
+  spotifyId: string;
+  artist: string;
+  title: string;
+  imageUrl: string | null;
+  releaseYear: number | null;
+  spotifyUrl: string | null;
 };
 
 // Local YYYY-MM-DD (respects the user's timezone, unlike toISOString).
@@ -25,6 +37,49 @@ function formatDate(iso: string): string {
     month: 'short',
     day: 'numeric',
   });
+}
+
+function Cover({
+  album,
+  size,
+}: {
+  album: { imageUrl: string | null; title: string };
+  size: number;
+}) {
+  const style = { width: size, height: size };
+  if (album.imageUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return (
+      <img
+        src={album.imageUrl}
+        alt=""
+        style={style}
+        className="rounded-md object-cover shrink-0"
+      />
+    );
+  }
+  return (
+    <div
+      style={style}
+      className="rounded-md shrink-0 bg-[var(--card-border)] grid place-items-center text-[var(--muted)]"
+    >
+      ♪
+    </div>
+  );
+}
+
+function SpotifyLink({ url }: { url: string | null }) {
+  if (!url) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="text-xs text-[var(--accent)] hover:underline whitespace-nowrap"
+    >
+      Play on Spotify ↗
+    </a>
+  );
 }
 
 function StarRating({
@@ -61,9 +116,12 @@ function StarRating({
 
 export function AlbumOfTheDay({ initialAlbums }: { initialAlbums: Album[] }) {
   const [albums, setAlbums] = useState<Album[]>(initialAlbums);
-  const [artist, setArtist] = useState('');
-  const [title, setTitle] = useState('');
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const seq = useRef(0);
 
   const queue = useMemo(
     () => albums.filter((a) => !a.listenedOn).sort((x, y) => x.position - y.position),
@@ -81,6 +139,39 @@ export function AlbumOfTheDay({ initialAlbums }: { initialAlbums: Album[] }) {
   const today = queue[0] ?? null;
   const upNext = queue.slice(1, 6);
 
+  // Debounced catalog search against /api/spotify/search.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      setSearchError(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const id = ++seq.current;
+    const handle = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(q)}`);
+        if (id !== seq.current) return; // a newer query superseded this one
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setResults([]);
+          setSearchError(data.error ?? 'Search unavailable');
+        } else {
+          const data = await res.json();
+          setResults(data.results ?? []);
+          setSearchError(null);
+        }
+      } catch {
+        if (id === seq.current) setSearchError('Search unavailable');
+      } finally {
+        if (id === seq.current) setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [query]);
+
   function patchLocal(id: number, fields: Partial<Album>) {
     setAlbums((cur) => cur.map((a) => (a.id === id ? { ...a, ...fields } : a)));
   }
@@ -94,23 +185,46 @@ export function AlbumOfTheDay({ initialAlbums }: { initialAlbums: Album[] }) {
     });
   }
 
-  async function add() {
-    const a = artist.trim();
-    const t = title.trim();
-    const isValid = a.length > 0 && t.length > 0;
-    if (!isValid) return;
+  async function addAlbum(payload: {
+    artist: string;
+    title: string;
+    spotifyId?: string;
+    imageUrl?: string | null;
+    spotifyUrl?: string | null;
+    releaseYear?: number | null;
+  }) {
     setBusy(true);
     const res = await fetch('/api/albums', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artist: a, title: t }),
+      body: JSON.stringify(payload),
     });
     setBusy(false);
     if (!res.ok) return;
     const data = await res.json();
     setAlbums((cur) => [...cur, data.album]);
-    setArtist('');
-    setTitle('');
+    setQuery('');
+    setResults([]);
+  }
+
+  function addFromResult(r: SearchResult) {
+    addAlbum({
+      artist: r.artist,
+      title: r.title,
+      spotifyId: r.spotifyId,
+      imageUrl: r.imageUrl,
+      spotifyUrl: r.spotifyUrl,
+      releaseYear: r.releaseYear,
+    });
+  }
+
+  // Fallback: add whatever was typed as "Title — Artist" (or just a title)
+  // when search is unavailable or finds nothing.
+  function addManual() {
+    const raw = query.trim();
+    if (raw.length === 0) return;
+    const [titlePart, artistPart] = raw.split('—').map((s) => s.trim());
+    addAlbum({ title: titlePart || raw, artist: artistPart || 'Unknown artist' });
   }
 
   async function markListened(id: number) {
@@ -129,10 +243,21 @@ export function AlbumOfTheDay({ initialAlbums }: { initialAlbums: Album[] }) {
       {/* Today */}
       {today ? (
         <div className="rounded-xl border border-[var(--card-border)] p-4 mb-5">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">Today</p>
-          <p className="text-lg font-semibold leading-tight">{today.title}</p>
-          <p className="text-sm text-[var(--muted)] mb-3">{today.artist}</p>
-          <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-2">Today</p>
+          <div className="flex gap-4">
+            <Cover album={today} size={72} />
+            <div className="min-w-0 flex-1">
+              <p className="text-lg font-semibold leading-tight">{today.title}</p>
+              <p className="text-sm text-[var(--muted)]">
+                {today.artist}
+                {today.releaseYear ? ` · ${today.releaseYear}` : ''}
+              </p>
+              <div className="mt-1">
+                <SpotifyLink url={today.spotifyUrl} />
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 flex-wrap mt-3">
             <StarRating
               value={today.rating}
               onChange={(r) => patch(today.id, { rating: r })}
@@ -155,7 +280,7 @@ export function AlbumOfTheDay({ initialAlbums }: { initialAlbums: Album[] }) {
         </div>
       ) : (
         <p className="text-sm text-[var(--muted)] mb-5">
-          Queue is empty — add an album to listen to next.
+          Queue is empty — search for an album to listen to next.
         </p>
       )}
 
@@ -164,7 +289,8 @@ export function AlbumOfTheDay({ initialAlbums }: { initialAlbums: Album[] }) {
       <ul className="space-y-1 mb-3">
         {upNext.map((a) => (
           <li key={a.id} className="flex items-center gap-3 py-1 group">
-            <span className="flex-1 text-sm">
+            <Cover album={a} size={32} />
+            <span className="flex-1 min-w-0 text-sm truncate">
               <span className="font-medium">{a.title}</span>
               <span className="text-[var(--muted)]"> — {a.artist}</span>
             </span>
@@ -181,28 +307,58 @@ export function AlbumOfTheDay({ initialAlbums }: { initialAlbums: Album[] }) {
         ) : null}
       </ul>
 
-      <div className="flex gap-2 mb-5">
+      {/* Search / add */}
+      <div className="relative mb-5">
         <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-          placeholder="Album"
-          className="flex-1 bg-transparent border border-[var(--card-border)] rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && results.length === 0) addManual();
+          }}
+          placeholder="Search Spotify for an album…"
+          className="w-full bg-transparent border border-[var(--card-border)] rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
         />
-        <input
-          value={artist}
-          onChange={(e) => setArtist(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-          placeholder="Artist"
-          className="flex-1 bg-transparent border border-[var(--card-border)] rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-        />
-        <button
-          onClick={add}
-          disabled={busy}
-          className="rounded-lg bg-[var(--accent)] text-white px-4 py-2 text-sm font-medium disabled:opacity-60"
-        >
-          Add
-        </button>
+        {query.trim().length >= 2 ? (
+          <div className="mt-2 rounded-lg border border-[var(--card-border)] overflow-hidden">
+            {searching ? (
+              <p className="px-3 py-2 text-sm text-[var(--muted)]">Searching…</p>
+            ) : results.length > 0 ? (
+              <ul className="max-h-72 overflow-y-auto">
+                {results.map((r) => (
+                  <li key={r.spotifyId}>
+                    <button
+                      onClick={() => addFromResult(r)}
+                      disabled={busy}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[var(--card-border)]/40 disabled:opacity-60"
+                    >
+                      <Cover album={r} size={40} />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-medium truncate">{r.title}</span>
+                        <span className="block text-xs text-[var(--muted)] truncate">
+                          {r.artist}
+                          {r.releaseYear ? ` · ${r.releaseYear}` : ''}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="px-3 py-2">
+                <p className="text-sm text-[var(--muted)] mb-1">
+                  {searchError ?? 'No matches.'}
+                </p>
+                <button
+                  onClick={addManual}
+                  disabled={busy}
+                  className="text-xs text-[var(--accent)] hover:underline disabled:opacity-60"
+                >
+                  Add “{query.trim()}” manually
+                </button>
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {/* Recently listened */}
@@ -214,6 +370,7 @@ export function AlbumOfTheDay({ initialAlbums }: { initialAlbums: Album[] }) {
           <ul className="space-y-2">
             {history.map((a) => (
               <li key={a.id} className="flex items-start gap-3 py-1 group">
+                <Cover album={a} size={40} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate">
                     <span className="font-medium">{a.title}</span>

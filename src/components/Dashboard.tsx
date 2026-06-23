@@ -42,6 +42,9 @@ type Album = {
   listenedOn: string | null;
   rating: number | null;
   note: string | null;
+  imageUrl: string | null;
+  spotifyUrl: string | null;
+  releaseYear: number | null;
 };
 
 type Props = {

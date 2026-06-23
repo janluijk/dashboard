@@ -85,6 +85,12 @@ export const albums = pgTable('albums', {
   listenedOn: date('listened_on'),
   rating: integer('rating'),
   note: text('note'),
+  // Spotify catalog metadata (Phase 1), populated when an album is added via
+  // search. All nullable so manually-typed rows keep working.
+  spotifyId: text('spotify_id'),
+  imageUrl: text('image_url'),
+  releaseYear: integer('release_year'),
+  spotifyUrl: text('spotify_url'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

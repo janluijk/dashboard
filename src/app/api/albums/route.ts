@@ -32,6 +32,11 @@ export async function POST(req: NextRequest) {
   if (!isValid) {
     return NextResponse.json({ error: 'artist and title required' }, { status: 400 });
   }
+  // Optional Spotify metadata when the album was picked from search.
+  const spotifyId = body.spotifyId ? String(body.spotifyId) : null;
+  const imageUrl = body.imageUrl ? String(body.imageUrl) : null;
+  const spotifyUrl = body.spotifyUrl ? String(body.spotifyUrl) : null;
+  const releaseYear = Number.isFinite(Number(body.releaseYear)) ? Number(body.releaseYear) : null;
   // Append to the end of the queue.
   const [{ value: maxPosition }] = await db
     .select({ value: max(albums.position) })
@@ -44,6 +49,10 @@ export async function POST(req: NextRequest) {
       artist,
       title,
       position: (maxPosition ?? 0) + 1,
+      spotifyId,
+      imageUrl,
+      releaseYear,
+      spotifyUrl,
     })
     .returning();
   return NextResponse.json({ album: row });

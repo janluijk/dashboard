@@ -68,6 +68,9 @@ export default async function Home() {
         listenedOn: a.listenedOn,
         rating: a.rating,
         note: a.note,
+        imageUrl: a.imageUrl,
+        spotifyUrl: a.spotifyUrl,
+        releaseYear: a.releaseYear,
       }))}
     />
   );
