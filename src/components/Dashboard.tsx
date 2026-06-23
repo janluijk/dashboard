@@ -7,6 +7,7 @@ import { TodoList } from './TodoList';
 import { GoalsPanel } from './GoalsPanel';
 import { Heatmap } from './Heatmap';
 import { WeeklyMileageChart } from './WeeklyMileageChart';
+import { AlbumOfTheDay } from './AlbumOfTheDay';
 
 type Activity = {
   id: number;
@@ -42,6 +43,16 @@ type Goal = {
   unit: string;
 };
 
+type Album = {
+  id: number;
+  artist: string;
+  title: string;
+  position: number;
+  listenedOn: string | null;
+  rating: number | null;
+  note: string | null;
+};
+
 type Props = {
   user: {
     id: number;
@@ -56,6 +67,7 @@ type Props = {
   studySessions: StudySession[];
   todos: Todo[];
   goals: Goal[];
+  albums: Album[];
 };
 
 const RUN_TYPES = new Set(['Run', 'TrailRun', 'VirtualRun']);
@@ -73,7 +85,7 @@ function formatHM(seconds: number): string {
 }
 
 export function Dashboard(props: Props) {
-  const { user, weekStart, weekEnd, activities, studySessions, todos, goals } = props;
+  const { user, weekStart, weekEnd, activities, studySessions, todos, goals, albums } = props;
   const [syncing, startSync] = useTransition();
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
@@ -185,6 +197,10 @@ export function Dashboard(props: Props) {
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <TodoList initialTodos={todos} />
         <Heatmap activities={activities} studySessions={studySessions} />
+      </section>
+
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <AlbumOfTheDay initialAlbums={albums} />
       </section>
     </main>
   );

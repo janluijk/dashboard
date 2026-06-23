@@ -74,6 +74,20 @@ export const goals = pgTable('goals', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Album-of-the-day tracker. Rows with a null `listenedOn` are the queue
+// (ordered by `position`); rows with a date set are listening history.
+export const albums = pgTable('albums', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  artist: text('artist').notNull(),
+  title: text('title').notNull(),
+  position: integer('position').notNull().default(0),
+  listenedOn: date('listened_on'),
+  rating: integer('rating'),
+  note: text('note'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // --- Buurtheld feature tables (Strava segment / Local Legend tracking). ---
 
 export const segments = pgTable('segments', {
@@ -146,6 +160,8 @@ export type Todo = typeof todos.$inferSelect;
 export type NewTodo = typeof todos.$inferInsert;
 export type Goal = typeof goals.$inferSelect;
 export type NewGoal = typeof goals.$inferInsert;
+export type Album = typeof albums.$inferSelect;
+export type NewAlbum = typeof albums.$inferInsert;
 export type Segment = typeof segments.$inferSelect;
 export type NewSegment = typeof segments.$inferInsert;
 export type Favorite = typeof favorites.$inferSelect;

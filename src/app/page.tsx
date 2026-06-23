@@ -1,7 +1,7 @@
-import { and, desc, eq, gte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db/client';
-import { activities, goals, studySessions, todos } from '@/lib/db/schema';
+import { activities, albums, goals, studySessions, todos } from '@/lib/db/schema';
 import { startOfWeek, endOfWeek } from '@/lib/week';
 import { Dashboard } from '@/components/Dashboard';
 import { LoginScreen } from '@/components/LoginScreen';
@@ -20,7 +20,7 @@ export default async function Home() {
   const weekEnd = endOfWeek(now);
   const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-  const [recentActivities, weekStudy, allTodos, userGoals] = await Promise.all([
+  const [recentActivities, weekStudy, allTodos, userGoals, allAlbums] = await Promise.all([
     db
       .select()
       .from(activities)
@@ -37,6 +37,11 @@ export default async function Home() {
       .where(eq(todos.userId, user.id))
       .orderBy(desc(todos.createdAt)),
     db.select().from(goals).where(eq(goals.userId, user.id)),
+    db
+      .select()
+      .from(albums)
+      .where(eq(albums.userId, user.id))
+      .orderBy(asc(albums.listenedOn), asc(albums.position), desc(albums.createdAt)),
   ]);
 
   return (
@@ -66,6 +71,15 @@ export default async function Home() {
         completedAt: t.completedAt?.toISOString() ?? null,
       }))}
       goals={userGoals}
+      albums={allAlbums.map((a) => ({
+        id: a.id,
+        artist: a.artist,
+        title: a.title,
+        position: a.position,
+        listenedOn: a.listenedOn,
+        rating: a.rating,
+        note: a.note,
+      }))}
     />
   );
 }
