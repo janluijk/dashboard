@@ -12,6 +12,7 @@ const inactiveClass =
 export function Sidebar() {
   const pathname = usePathname();
   const isDashboard = pathname === '/';
+  const isAlbums = pathname.startsWith('/albums');
   const isBuurtheld = pathname.startsWith('/buurtheld');
 
   return (
@@ -25,6 +26,13 @@ export function Sidebar() {
         className={`${baseClass} ${isDashboard ? activeClass : inactiveClass}`}
       >
         <span aria-hidden>📊</span> Dashboard
+      </Link>
+      <Link
+        href="/albums"
+        aria-current={isAlbums ? 'page' : undefined}
+        className={`${baseClass} ${isAlbums ? activeClass : inactiveClass}`}
+      >
+        <span aria-hidden>💿</span> Albums
       </Link>
       <Link
         href="/buurtheld/favorites"

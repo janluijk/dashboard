@@ -1,19 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-
-type Album = {
-  id: number;
-  artist: string;
-  title: string;
-  position: number;
-  listenedOn: string | null;
-  rating: number | null;
-  note: string | null;
-  imageUrl: string | null;
-  spotifyUrl: string | null;
-  releaseYear: number | null;
-};
+import { Cover, SpotifyLink, StarRating, formatDate, type Album } from './albums/parts';
 
 type SearchResult = {
   spotifyId: string;
@@ -29,108 +17,6 @@ function todayLocal(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function Cover({
-  album,
-  size,
-}: {
-  album: { imageUrl: string | null; title: string };
-  size: number;
-}) {
-  const style = { width: size, height: size };
-  if (album.imageUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return (
-      <img
-        src={album.imageUrl}
-        alt=""
-        style={style}
-        className="rounded-md object-cover shrink-0"
-      />
-    );
-  }
-  return (
-    <div
-      style={style}
-      className="rounded-md shrink-0 bg-[var(--card-border)] grid place-items-center text-[var(--muted)]"
-    >
-      ♪
-    </div>
-  );
-}
-
-function SpotifyLink({ url }: { url: string | null }) {
-  if (!url) return null;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      className="text-xs text-[var(--accent)] hover:underline whitespace-nowrap"
-    >
-      Play on Spotify ↗
-    </a>
-  );
-}
-
-// Half-star rating. Each star is split into two click targets: the left half
-// sets an x.5 value, the right half sets a whole value. Clicking the current
-// value again clears the rating. The fill is rendered by overlaying a clipped
-// accent-colored star on top of an empty one.
-function StarRating({
-  value,
-  onChange,
-  size = 'sm',
-}: {
-  value: number | null;
-  onChange: (next: number | null) => void;
-  size?: 'sm' | 'lg';
-}) {
-  const cls = size === 'lg' ? 'text-2xl' : 'text-base';
-  const current = value ?? 0;
-  return (
-    <div className={`flex items-center gap-0.5 ${cls}`}>
-      {[1, 2, 3, 4, 5].map((n) => {
-        // Portion of this star that should be filled: 0, 0.5, or 1.
-        const fill = Math.max(0, Math.min(1, current - (n - 1)));
-        const half = n - 0.5;
-        return (
-          <span key={n} className="relative inline-block leading-none align-middle">
-            <span className="text-[var(--card-border)]">★</span>
-            {fill > 0 && (
-              <span
-                className="pointer-events-none absolute inset-0 overflow-hidden text-[var(--accent)]"
-                style={{ width: `${fill * 100}%` }}
-              >
-                ★
-              </span>
-            )}
-            <button
-              type="button"
-              aria-label={`${half} star${half === 1 ? '' : 's'}`}
-              onClick={() => onChange(current === half ? null : half)}
-              className="absolute inset-y-0 left-0 z-10 w-1/2"
-            />
-            <button
-              type="button"
-              aria-label={`${n} star${n === 1 ? '' : 's'}`}
-              onClick={() => onChange(current === n ? null : n)}
-              className="absolute inset-y-0 right-0 z-10 w-1/2"
-            />
-          </span>
-        );
-      })}
-    </div>
-  );
 }
 
 export function AlbumOfTheDay({ initialAlbums }: { initialAlbums: Album[] }) {
