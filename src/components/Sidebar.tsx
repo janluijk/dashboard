@@ -27,7 +27,7 @@ export function Sidebar() {
         <span aria-hidden>📊</span> Dashboard
       </Link>
       <Link
-        href="/buurtheld/explore"
+        href="/buurtheld/favorites"
         aria-current={isBuurtheld ? 'page' : undefined}
         className={`${baseClass} ${isBuurtheld ? activeClass : inactiveClass}`}
       >

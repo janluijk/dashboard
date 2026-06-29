@@ -135,6 +135,11 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
   const [filter, setFilter] = useState<'all' | 'favorites'>('all');
   const filterRef = useRef<'all' | 'favorites'>(filter);
   filterRef.current = filter;
+  // When on, segments you already hold the Local Legend on are hidden from the
+  // list and map — useful when chasing claims you don't yet hold.
+  const [hideHeld, setHideHeld] = useState(false);
+  const hideHeldRef = useRef(hideHeld);
+  hideHeldRef.current = hideHeld;
   const [sortBy, setSortBy] = useState<'distance_to_claim' | 'attempts_to_claim' | 'segment_distance'>(
     'distance_to_claim'
   );
@@ -350,7 +355,12 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
     if (!map) return;
     if (!map.getSource(SEGMENTS_SOURCE_ID)) return;
     const visibleIds = items
-      .filter((s) => stillFavorite.has(s.id) && (filter === 'all' || s.favorite))
+      .filter(
+        (s) =>
+          stillFavorite.has(s.id) &&
+          (filter === 'all' || s.favorite) &&
+          (!hideHeld || !s.isYouTheLegend)
+      )
       .map((s) => s.id);
     for (const id of visibleIds) {
       map.setFeatureState(
@@ -362,19 +372,26 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
         { selected: id === selectedId }
       );
     }
-    if (selectedId !== null) {
-      const target = itemsRef.current.find((i) => i.id === selectedId);
-      if (target) fitToSegment(map, target);
-      const row = document.getElementById(`fav-row-${selectedId}`);
-      row?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, items, stillFavorite, filter]);
+  }, [selectedId, items, stillFavorite, filter, hideHeld]);
+
+  // Zoom the map and scroll the list to a segment only when the *selection*
+  // changes — not on every background refresh (which updates `items`), which
+  // would otherwise yank the view back to the selected segment repeatedly.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (selectedId === null) return;
+    const target = itemsRef.current.find((i) => i.id === selectedId);
+    if (target) fitToSegment(map, target);
+    const row = document.getElementById(`fav-row-${selectedId}`);
+    row?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [selectedId]);
 
   useEffect(() => {
     syncHeldLayers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, stillFavorite, filter]);
+  }, [items, stillFavorite, filter, hideHeld]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -382,7 +399,12 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
     const segSource = map.getSource(SEGMENTS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
     const pinSource = map.getSource(PINS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
     if (!segSource || !pinSource) return;
-    const shown = items.filter((s) => stillFavorite.has(s.id) && (filter === 'all' || s.favorite));
+    const shown = items.filter(
+      (s) =>
+        stillFavorite.has(s.id) &&
+        (filter === 'all' || s.favorite) &&
+        (!hideHeld || !s.isYouTheLegend)
+    );
     segSource.setData({
       type: 'FeatureCollection',
       features: shown.map((s) => ({
@@ -404,7 +426,7 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
         geometry: { type: 'Point', coordinates: [s.startLng, s.startLat] },
       })),
     });
-  }, [items, stillFavorite, filter]);
+  }, [items, stillFavorite, filter, hideHeld]);
 
   function focusSegment(s: FavoriteSegment) {
     setSelectedId(s.id);
@@ -417,9 +439,8 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
       return at ? new Date(at).getTime() : -Infinity;
     }
     const queue = [...visible].sort((a, b) => staleness(a) - staleness(b)).slice(0, REFRESH_BATCH);
-    for (const s of queue) {
-      await refreshSegment(s.id);
-    }
+    // Refresh in parallel — refreshSegment handles its own errors per segment.
+    await Promise.all(queue.map((s) => refreshSegment(s.id)));
   }
 
   async function refreshSegment(segmentId: number) {
@@ -498,6 +519,7 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
         .filter(
           (i) =>
             i.isYouTheLegend &&
+            !hideHeldRef.current &&
             stillFavoriteRef.current.has(i.id) &&
             (filterRef.current === 'all' || i.favorite)
         )
@@ -579,7 +601,12 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
   const selectedCount = items.filter((i) => stillFavorite.has(i.id)).length;
   const favoriteCount = items.filter((i) => stillFavorite.has(i.id) && i.favorite).length;
   const visible = items
-    .filter((i) => stillFavorite.has(i.id) && (filter === 'all' || i.favorite))
+    .filter(
+      (i) =>
+        stillFavorite.has(i.id) &&
+        (filter === 'all' || i.favorite) &&
+        (!hideHeld || !i.isYouTheLegend)
+    )
     .sort((a, b) => {
       const [aBucket, aValue] = sortKey(a);
       const [bBucket, bValue] = sortKey(b);
@@ -610,7 +637,7 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
                 title="Refresh 25 oldest"
                 className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm disabled:opacity-60"
               >
-                {refreshingIds.size > 0 ? `Refreshing ${refreshingIds.size}…` : 'Refresh'}
+                {refreshingIds.size > 0 ? 'Refreshing…' : 'Refresh'}
               </button>
             )}
           </div>
@@ -649,6 +676,15 @@ export function FavoritesView({ items: initialItems }: { items: FavoriteSegment[
               <option value="attempts_to_claim">Attempts to claim</option>
               <option value="segment_distance">Segment distance</option>
             </select>
+          </label>
+          <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
+            <input
+              type="checkbox"
+              checked={hideHeld}
+              onChange={(e) => setHideHeld(e.target.checked)}
+              className="accent-[var(--accent)]"
+            />
+            Hide Local Legends I hold
           </label>
         </div>
         {refreshError && (

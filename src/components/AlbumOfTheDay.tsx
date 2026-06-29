@@ -82,6 +82,10 @@ function SpotifyLink({ url }: { url: string | null }) {
   );
 }
 
+// Half-star rating. Each star is split into two click targets: the left half
+// sets an x.5 value, the right half sets a whole value. Clicking the current
+// value again clears the rating. The fill is rendered by overlaying a clipped
+// accent-colored star on top of an empty one.
 function StarRating({
   value,
   onChange,
@@ -92,22 +96,37 @@ function StarRating({
   size?: 'sm' | 'lg';
 }) {
   const cls = size === 'lg' ? 'text-2xl' : 'text-base';
+  const current = value ?? 0;
   return (
     <div className={`flex items-center gap-0.5 ${cls}`}>
       {[1, 2, 3, 4, 5].map((n) => {
-        const filled = (value ?? 0) >= n;
+        // Portion of this star that should be filled: 0, 0.5, or 1.
+        const fill = Math.max(0, Math.min(1, current - (n - 1)));
+        const half = n - 0.5;
         return (
-          <button
-            key={n}
-            type="button"
-            aria-label={`${n} star${n === 1 ? '' : 's'}`}
-            onClick={() => onChange(value === n ? null : n)}
-            className={`leading-none transition ${
-              filled ? 'text-[var(--accent)]' : 'text-[var(--card-border)] hover:text-[var(--muted)]'
-            }`}
-          >
-            ★
-          </button>
+          <span key={n} className="relative inline-block leading-none align-middle">
+            <span className="text-[var(--card-border)]">★</span>
+            {fill > 0 && (
+              <span
+                className="pointer-events-none absolute inset-0 overflow-hidden text-[var(--accent)]"
+                style={{ width: `${fill * 100}%` }}
+              >
+                ★
+              </span>
+            )}
+            <button
+              type="button"
+              aria-label={`${half} star${half === 1 ? '' : 's'}`}
+              onClick={() => onChange(current === half ? null : half)}
+              className="absolute inset-y-0 left-0 z-10 w-1/2"
+            />
+            <button
+              type="button"
+              aria-label={`${n} star${n === 1 ? '' : 's'}`}
+              onClick={() => onChange(current === n ? null : n)}
+              className="absolute inset-y-0 right-0 z-10 w-1/2"
+            />
+          </span>
         );
       })}
     </div>

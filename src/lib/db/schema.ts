@@ -83,7 +83,8 @@ export const albums = pgTable('albums', {
   title: text('title').notNull(),
   position: integer('position').notNull().default(0),
   listenedOn: date('listened_on'),
-  rating: integer('rating'),
+  // Stored as a double so ratings can be in 0.5-star increments (e.g. 3.5).
+  rating: doublePrecision('rating'),
   note: text('note'),
   // Spotify catalog metadata (Phase 1), populated when an album is added via
   // search. All nullable so manually-typed rows keep working.
